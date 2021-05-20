@@ -7,6 +7,7 @@ import EVMRevert from './helpers/EVMRevert';
 
 const AlphaCoin = artifacts.require("AlphaCoin");
 const AlphaCoinCrowdsale = artifacts.require("AlphaCoinCrowdsale");
+// const RefundVault = artifacts.require("./RefundVault");
 const BigNumber = web3.BigNumber;
 
 require('chai')
@@ -35,6 +36,18 @@ contract('AlphaCoinCrowdsale', function ([_, wallet, investor1, investor2]) {
         this.investorMinCap = ether('0.002');
         this.investorHardCap = ether('50');
 
+        // ICO stages
+        this.preIcoStage = 0;
+        this.icoStage = 1;
+        this.preIcoRate = 500;
+        this.icoRate = 250;
+
+        // Token Distribution
+        this.tokenSalePercentage = 70;
+        this.foundersPercentage = 10;
+        this.foundationPercentage = 10;
+        this.partnersPercentage = 10;
+
         this.crowdsale = await AlphaCoinCrowdsale.new(this.rate, this.wallet, this.token.address, this.cap);
 
         // Transfer token ownership to crowdsale
@@ -42,6 +55,10 @@ contract('AlphaCoinCrowdsale', function ([_, wallet, investor1, investor2]) {
 
         // Add investors to whitelist
         await this.crowdsale.addManyToWhitelist([investor1, investor2]);
+
+        // Track refund vault
+        // this.vaultAddress = await this.crowdsale.vault();
+        // this.vault = RefundVault.at(this.vaultAddress);
 
         // Advance time to crowdsale start
         // await increaseTimeTo(this.openingTime + 15);
@@ -89,8 +106,44 @@ contract('AlphaCoinCrowdsale', function ([_, wallet, investor1, investor2]) {
         it('rejects contributions from non-whitelisted investors', async function () {
             const notWhitelisted = _;
             await this.crowdsale.buyTokens(notWhitelisted, { value: ether('1'), from: notWhitelisted }).should.be.rejectedWith(EVMRevert);
-        })
-    })
+        });
+    });
+
+    // describe('refundable crowdsale', function () {
+    //     beforeEach(async function () {
+    //         await this.crowdsale.buyTokens(investor1, { from: investor1, value: ether('1') });
+    //     });
+
+    //     describe('during crowdsale', function () {
+    //         it('prevents the investor from claiming refund', async function () {
+    //             await this.vault.refund(investor1, { from: investor1 }).should.be.rejectedWith(EVMRevert);
+    //         });
+    //     });
+    // });
+
+    describe('crowdsale stages', function () {
+        it('it starts in PreICO', async function () {
+            const stage = await this.crowdsale.stage();
+            stage.toString().should.be.bignumber.equal(this.preIcoStage.toString());
+        });
+
+        it('starts at the preICO rate', async function () {
+            const rate = await this.crowdsale.rate();
+            rate.toString().should.be.bignumber.equal(this.preIcoRate.toString());
+        });
+
+        it('allows admin to update the stage & rate', async function () {
+            await this.crowdsale.setCrowdsaleStage(this.icoStage, { from: _ });
+            const stage = await this.crowdsale.stage();
+            stage.toString().should.be.bignumber.equal(this.icoStage.toString());
+            const rate = await this.crowdsale.rate();
+            rate.toString().should.be.bignumber.equal(this.icoRate.toString());
+        });
+
+        it('prevents non-admin from updating the stage', async function () {
+            await this.crowdsale.setCrowdsaleStage(this.icoStage, { from: investor1 }).should.be.rejectedWith(EVMRevert);
+        });
+    });
 
     describe('accepting payments', function () {
         it('should accept payments', async function () {
@@ -138,6 +191,29 @@ contract('AlphaCoinCrowdsale', function ([_, wallet, investor1, investor2]) {
                 const contribution = await this.crowdsale.getUserContribution(investor2);
                 contribution.toString().should.be.bignumber.equal(value.toString());
             });
+        });
+    });
+
+    describe('token distribution', function () {
+        it('tracks token distribution correctly', async function () {
+            const tokenSalePercentage = await this.crowdsale.tokenSalePercentage();
+            tokenSalePercentage.toString().should.be.bignumber.eq(this.tokenSalePercentage.toString(), 'has correct tokenSalePercentage');
+            const foundersPercentage = await this.crowdsale.foundersPercentage();
+            foundersPercentage.toString().should.be.bignumber.eq(this.foundersPercentage.toString(), 'has correct foundersPercentage');
+            const foundationPercentage = await this.crowdsale.foundationPercentage();
+            foundationPercentage.toString().should.be.bignumber.eq(this.foundationPercentage.toString(), 'has correct foundationPercentage');
+            const partnersPercentage = await this.crowdsale.partnersPercentage();
+            partnersPercentage.toString().should.be.bignumber.eq(this.partnersPercentage.toString(), 'has correct partnersPercentage');
+        });
+
+        it('is a valid percentage breakdown', async function () {
+            const tokenSalePercentage = await this.crowdsale.tokenSalePercentage();
+            const foundersPercentage = await this.crowdsale.foundersPercentage();
+            const foundationPercentage = await this.crowdsale.foundationPercentage();
+            const partnersPercentage = await this.crowdsale.partnersPercentage();
+
+            const total = tokenSalePercentage.toNumber() + foundersPercentage.toNumber() + foundationPercentage.toNumber() + partnersPercentage.toNumber()
+            total.should.equal(100);
         });
     });
 

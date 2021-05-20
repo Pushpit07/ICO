@@ -25,6 +25,9 @@
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 require('babel-register');
 require('babel-polyfill');
+require('dotenv').config();
+
+const HDWalletProvider = require('truffle-hdwallet-provider');
 
 module.exports = {
   /**
@@ -54,6 +57,14 @@ module.exports = {
       port: 8545,            // Standard Ethereum port (default: none)
       network_id: "*",       // Any network (default: none)
     },
+    ropsten: {
+      provider: function () {
+        return new HDWalletProvider(process.env.MNEMONIC, `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`);
+      },
+      gas: 5000000,
+      gasPrice: 25000000000,
+      network_id: 3
+    }
 
     // Another network with more advanced options...
     // advanced: {

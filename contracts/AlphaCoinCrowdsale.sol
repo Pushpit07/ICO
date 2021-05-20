@@ -1,9 +1,13 @@
 pragma solidity ^0.4.24;
 
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
 import "openzeppelin-solidity/contracts/crowdsale/Crowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/validation/CappedCrowdsale.sol";
-// import "openzeppelin-solidity/contracts/crowdsale/validation/TimedCrowdsale.sol";
+import "openzeppelin-solidity/contracts/crowdsale/validation/TimedCrowdsale.sol";
+import "openzeppelin-solidity/contracts/crowdsale/distribution/RefundableCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/validation/WhitelistedCrowdsale.sol";
 
 contract AlphaCoinCrowdsale is
@@ -15,8 +19,18 @@ contract AlphaCoinCrowdsale is
     // Track investor contributions
     uint256 public investorMinCap = 2000000000000000; // 0.002 Eth
     uint256 public investorHardCap = 50000000000000000000; // 5 Eth
-
     mapping(address => uint256) public contributions;
+
+    // Crowdsale stages
+    enum CrowdsaleStage {PreICO, ICO}
+    // default to presale stage
+    CrowdsaleStage public stage = CrowdsaleStage.PreICO;
+
+    // Token Distribution
+    uint256 public tokenSalePercentage = 70;
+    uint256 public foundersPercentage = 10;
+    uint256 public foundationPercentage = 10;
+    uint256 public partnersPercentage = 10;
 
     constructor(
         uint256 _rate,
@@ -31,6 +45,20 @@ contract AlphaCoinCrowdsale is
         returns (uint256)
     {
         return contributions[_beneficiary];
+    }
+
+    function setCrowdsaleStage(uint256 _stage) public onlyOwner {
+        if (uint256(CrowdsaleStage.PreICO) == _stage) {
+            stage = CrowdsaleStage.PreICO;
+        } else if (uint256(CrowdsaleStage.ICO) == _stage) {
+            stage = CrowdsaleStage.ICO;
+        }
+
+        if (stage == CrowdsaleStage.PreICO) {
+            rate = 500;
+        } else if (stage == CrowdsaleStage.ICO) {
+            rate = 250;
+        }
     }
 
     function _preValidatePurchase(address _beneficiary, uint256 _weiAmount)
