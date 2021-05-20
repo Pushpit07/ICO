@@ -1,4 +1,4 @@
-# ICO
+# AlphaCoin ICO
 
 A real world ICO for a cryptocurrency. The crowdsale has the following features-
 
